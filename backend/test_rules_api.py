@@ -47,7 +47,8 @@ def run():
             ],
         }
         c.put(f"/api/projects/{pid}",
-              json={"name": "访谈A", "document": doc})
+              json={"name": "访谈A", "document": doc,
+                    "documentVersion": p["documentVersion"]})
 
         # draft preview, no persistence
         pv = c.post(f"/api/projects/{pid}/rules/preview",
@@ -88,14 +89,16 @@ def run():
         # detach (manual edit) -> re-apply keeps manual + writes new rule
         # output.  ownership is lost by removing `source`; ruleId/ruleSlot
         # remain as provenance (mirrors the editor page behavior).
-        cur = c.get(f"/api/projects/{pid}").json()["document"]
+        cur_proj = c.get(f"/api/projects/{pid}").json()
+        cur = cur_proj["document"]
         rule_ann = next(a for a in cur["annotations"]
                         if a.get("ruleId") == rid)
         rule_ann.pop("source")
         rule_ann.pop("ruleName")
         rule_ann["topic"] = "手工改过"
         c.put(f"/api/projects/{pid}",
-              json={"name": "访谈A", "document": cur})
+              json={"name": "访谈A", "document": cur,
+                    "documentVersion": cur_proj["documentVersion"]})
         ap3 = c.post(f"/api/rules/{rid}/apply").json()
         topics = sorted(a["topic"] for a in ap3["document"]["annotations"])
         assert topics == ["企业改制", "手工", "手工改过"], topics
@@ -113,8 +116,10 @@ def run():
         cur2 = ap4["document"]
         cur2["annotations"] = [a for a in cur2["annotations"]
                                if a.get("ruleId") != rid]
+        ver2 = c.get(f"/api/projects/{pid}").json()["documentVersion"]
         c.put(f"/api/projects/{pid}",
-              json={"name": "访谈A", "document": cur2})
+              json={"name": "访谈A", "document": cur2,
+                    "documentVersion": ver2})
         pv3 = c.post(f"/api/rules/{rid}/preview").json()
         assert pv3["stats"]["willCreate"] == 0
         assert pv3["stats"]["suppressed"] == 1

@@ -44,8 +44,10 @@ def run():
         assert c.get("/api/health").json()["status"] == "ok"
         p = c.post("/api/projects", json={"name": "质检访谈"}).json()
         pid = p["id"]
-        c.put(f"/api/projects/{pid}",
-              json={"name": "质检访谈", "document": DOC})
+        ver = c.put(f"/api/projects/{pid}",
+                    json={"name": "质检访谈", "document": DOC,
+                          "documentVersion": p["documentVersion"]}
+                    ).json()["documentVersion"]
 
         # default (no body): whole document
         r = c.post(f"/api/projects/{pid}/quality-check")
@@ -140,7 +142,8 @@ def run():
             ],
         }
         save = c.put(f"/api/projects/{pid}",
-                     json={"name": "质检访谈", "document": updated})
+                     json={"name": "质检访谈", "document": updated,
+                           "documentVersion": ver})
         assert save.status_code == 200
         again = c.post(f"/api/projects/{pid}/quality-check").json()
         assert not any(q["issueId"] == "qc:out_of_bounds:ann-oob"

@@ -1,6 +1,7 @@
 """SQLite persistence (stdlib sqlite3, one file under DATA_DIR)."""
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sqlite3
@@ -29,6 +30,21 @@ def _now_us() -> str:
 
 def new_id(prefix: str) -> str:
     return f"{prefix}-{uuid.uuid4().hex[:12]}"
+
+
+def document_version(document: dict | None) -> str:
+    """Stable content fingerprint of a whole project document.
+
+    SHA-256 over the canonical JSON (sorted keys, tight separators) of the
+    entire document — every segment and annotation field is covered, so any
+    content change flips the version even when two saves land within the
+    same second (the second-precision ``updated_at`` cannot detect that).
+    The same document always yields the same version, so re-saving
+    unchanged content never looks like a conflict.
+    """
+    canonical = json.dumps(document or {}, ensure_ascii=False,
+                           sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def init() -> None:
@@ -105,10 +121,12 @@ def init() -> None:
 
 
 def _row_to_dict(row: sqlite3.Row) -> dict:
+    document = json.loads(row["document"])
     return {
         "id": row["id"],
         "name": row["name"],
-        "document": json.loads(row["document"]),
+        "document": document,
+        "documentVersion": document_version(document),
         "createdAt": row["created_at"],
         "updatedAt": row["updated_at"],
     }
@@ -144,9 +162,28 @@ def create_project(name: str, document: dict | None = None) -> dict:
     return get_project(pid)
 
 
-def update_project(project_id: str, name: str | None, document: dict) -> dict | None:
+def update_project(project_id: str, name: str | None, document: dict,
+                   expected_version: str | None = None) -> dict | None:
+    """Update a project's document (and optionally its name).
+
+    When ``expected_version`` is given, the stored document's version is
+    re-computed and compared inside the same write lock: a mismatch means
+    another writer saved first (e.g. corrections confirmed on another
+    page), so nothing is written — not even the name — and
+    ``{"conflict": True}`` is returned.  Returns ``None`` when the project
+    does not exist.
+    """
     now = _now()
     with _lock:
+        if expected_version is not None:
+            row = _conn.execute(
+                "SELECT document FROM projects WHERE id = ?", (project_id,)
+            ).fetchone()
+            if row is None:
+                return None
+            current = document_version(json.loads(row["document"]))
+            if current != expected_version:
+                return {"conflict": True}
         if name is not None:
             _conn.execute(
                 "UPDATE projects SET name = ?, document = ?, updated_at = ?"

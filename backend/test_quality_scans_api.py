@@ -45,8 +45,10 @@ def run():
         assert c.get("/api/health").json()["status"] == "ok"
         p = c.post("/api/projects", json={"name": "历史访谈"}).json()
         pid = p["id"]
-        c.put(f"/api/projects/{pid}",
-              json={"name": "历史访谈", "document": DOC})
+        ver = c.put(f"/api/projects/{pid}",
+                    json={"name": "历史访谈", "document": DOC,
+                          "documentVersion": p["documentVersion"]}
+                    ).json()["documentVersion"]
 
         # a second project proves scans are listed per project
         p2 = c.post("/api/projects", json={"name": "其他项目"}).json()
@@ -111,8 +113,10 @@ def run():
                 for a in DOC["annotations"]
             ],
         }
-        c.put(f"/api/projects/{pid}",
-              json={"name": "历史访谈", "document": fixed_doc})
+        ver = c.put(f"/api/projects/{pid}",
+                    json={"name": "历史访谈", "document": fixed_doc,
+                          "documentVersion": ver}
+                    ).json()["documentVersion"]
         # explicit fixed window (0-30) keeps the window identical even though
         # the document's own extent shrank to 0-20 after the trim
         r4 = c.post(f"/api/projects/{pid}/quality-check",
@@ -145,7 +149,8 @@ def run():
             ],
         }
         c.put(f"/api/projects/{pid}",
-              json={"name": "历史访谈", "document": new_doc})
+              json={"name": "历史访谈", "document": new_doc,
+                    "documentVersion": ver})
         r5 = c.post(f"/api/projects/{pid}/quality-check",
                     json={"start": 0, "end": 30}).json()
         cmp2 = c.post(f"/api/projects/{pid}/quality-scans/compare",

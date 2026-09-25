@@ -107,7 +107,8 @@ def test_api():
         p = c.post("/api/projects", json={"name": "引语检索访谈"}).json()
         pid = p["id"]
         c.put(f"/api/projects/{pid}",
-              json={"name": "引语检索访谈", "document": DOC})
+              json={"name": "引语检索访谈", "document": DOC,
+                    "documentVersion": p["documentVersion"]})
 
         r = c.post(f"/api/projects/{pid}/quote-search",
                    json={"query": "2003年厂子改制"})

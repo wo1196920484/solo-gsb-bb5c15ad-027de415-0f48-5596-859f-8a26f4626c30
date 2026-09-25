@@ -198,7 +198,8 @@ def test_api():
         p = c.post("/api/projects", json={"name": "公开版访谈"}).json()
         pid = p["id"]
         c.put(f"/api/projects/{pid}",
-              json={"name": "公开版访谈", "document": DOC})
+              json={"name": "公开版访谈", "document": DOC,
+                    "documentVersion": p["documentVersion"]})
 
         body = {"sensitiveWords": ["后来改制", "年 改制"],
                 "anonymizeSpeakers": ["甲", "乙"]}

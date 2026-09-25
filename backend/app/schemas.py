@@ -16,8 +16,15 @@ class DocumentIn(BaseModel):
 
 
 class ProjectUpdate(BaseModel):
+    """Editor save: the document plus the version it was read at.
+
+    ``documentVersion`` must be the ``documentVersion`` returned by the
+    read the save is based on; the backend re-checks it inside the write
+    lock and rejects stale saves with 409.
+    """
     name: str | None = Field(default=None, min_length=1, max_length=200)
     document: DocumentIn
+    documentVersion: str = ""
 
 
 class ImportPayload(BaseModel):

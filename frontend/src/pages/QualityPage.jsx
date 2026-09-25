@@ -197,6 +197,7 @@ export default function QualityPage() {
     try {
       const saved = await api.saveProject(projectId, {
         name: project.name, document: nextDoc,
+        documentVersion: project.documentVersion,
       })
       setProject(saved)
       flash(`已裁剪校注「${target.topic || annId}」到 ` +
@@ -208,6 +209,11 @@ export default function QualityPage() {
       }
     } catch (e) {
       setError(`裁剪保存失败：${e.message}`)
+      if (e.status === 409) {
+        // the project moved on elsewhere: refresh so the next try is based
+        // on the latest saved document
+        api.getProject(projectId).then(setProject).catch(() => {})
+      }
     }
   }
 

@@ -11,7 +11,9 @@ async function request(path, options = {}) {
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
   if (!res.ok) {
-    throw new Error((data && data.detail) || `请求失败 (${res.status})`);
+    const err = new Error((data && data.detail) || `请求失败 (${res.status})`);
+    err.status = res.status;
+    throw err;
   }
   return data;
 }
@@ -21,10 +23,10 @@ export const api = {
   createProject: (name) =>
     request('/projects', { method: 'POST', body: JSON.stringify({ name }) }),
   getProject: (id) => request(`/projects/${id}`),
-  saveProject: (id, { name, document }) =>
+  saveProject: (id, { name, document, documentVersion }) =>
     request(`/projects/${id}`, {
       method: 'PUT',
-      body: JSON.stringify({ name, document }),
+      body: JSON.stringify({ name, document, documentVersion }),
     }),
   deleteProject: (id) => request(`/projects/${id}`, { method: 'DELETE' }),
   exportUrl: (id) => `${BASE}/projects/${id}/export`,

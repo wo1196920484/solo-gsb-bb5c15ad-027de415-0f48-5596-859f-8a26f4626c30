@@ -200,9 +200,11 @@ def _create(document):
     c = _client()
     res = c.post("/api/projects", json={"name": "覆盖测试"})
     assert res.status_code == 201
-    pid = res.json()["id"]
+    created = res.json()
+    pid = created["id"]
     res = c.put(f"/api/projects/{pid}",
-                json={"document": document})
+                json={"document": document,
+                      "documentVersion": created["documentVersion"]})
     assert res.status_code == 200
     return pid
 

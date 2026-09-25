@@ -124,7 +124,8 @@ def test_api():
         p = c.post("/api/projects", json={"name": "说话人归一访谈"}).json()
         pid = p["id"]
         c.put(f"/api/projects/{pid}",
-              json={"name": "说话人归一访谈", "document": DOC})
+              json={"name": "说话人归一访谈", "document": DOC,
+                    "documentVersion": p["documentVersion"]})
         rule_ids = []
         for payload in _rules("老李") + [
             {"name": "规则-无说话人", "speaker": "", "matchType": "none",
@@ -227,7 +228,8 @@ def test_rename_is_atomic_on_failure():
         p = c.post("/api/projects", json={"name": "事务回滚"}).json()
         pid = p["id"]
         c.put(f"/api/projects/{pid}",
-              json={"name": "事务回滚", "document": DOC})
+              json={"name": "事务回滚", "document": DOC,
+                    "documentVersion": p["documentVersion"]})
         r = c.post(f"/api/projects/{pid}/rules",
                    json=_rules("老李")[0])
         rid = r.json()["id"]
