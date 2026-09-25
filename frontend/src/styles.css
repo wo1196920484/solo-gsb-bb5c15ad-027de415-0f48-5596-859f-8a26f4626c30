@@ -111,6 +111,14 @@ input:focus, select:focus, textarea:focus {
   background: #fdf4e2; border: 1px solid #ecd9ae; color: #7a5517;
   padding: 8px 12px; border-radius: 6px; margin: 8px 0;
 }
+.conflict-banner {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  background: #fdf4e2; border: 1px solid #e5c78a; color: #6d4a12;
+  padding: 10px 14px; border-radius: 6px; margin: 8px 0;
+}
+.conflict-banner .conflict-text {
+  display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 260px;
+}
 .badge {
   font-size: 11px; padding: 2px 8px; border-radius: 10px;
 }

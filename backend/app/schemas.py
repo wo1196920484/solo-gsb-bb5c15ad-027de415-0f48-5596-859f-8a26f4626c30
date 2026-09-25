@@ -16,8 +16,15 @@ class DocumentIn(BaseModel):
 
 
 class ProjectUpdate(BaseModel):
+    """Save a project document, guarded by the read-time document version.
+
+    ``baseVersion`` must be the ``version`` returned when the project was
+    last read; the server re-checks it inside the write lock and rejects
+    the save with 409 when the document was changed in the meantime.
+    """
     name: str | None = Field(default=None, min_length=1, max_length=200)
     document: DocumentIn
+    baseVersion: str = ""
 
 
 class ImportPayload(BaseModel):

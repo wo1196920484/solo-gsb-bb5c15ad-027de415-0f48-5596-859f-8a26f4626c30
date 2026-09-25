@@ -152,7 +152,8 @@ def test_preview_identity_pair_reports_no_change():
 def _make_project(client, name="错词校正访谈"):
     project = client.post("/api/projects", json={"name": name}).json()
     client.put(f"/api/projects/{project['id']}",
-               json={"name": name, "document": DOC})
+               json={"name": name, "document": DOC,
+                     "baseVersion": project["version"]})
     return project["id"]
 
 
@@ -239,9 +240,11 @@ def test_apply_rejected_after_transcript_edited_or_reimported():
         version = preview["transcriptVersion"]
 
         # 1) the saved transcript is edited (even only a speaker) -> 409
-        edited = c.get(f"/api/projects/{pid}").json()["document"]
+        current = c.get(f"/api/projects/{pid}").json()
+        edited = current["document"]
         edited["segments"][0]["speaker"] = "主持人"
-        c.put(f"/api/projects/{pid}", json={"document": edited})
+        c.put(f"/api/projects/{pid}",
+              json={"document": edited, "baseVersion": current["version"]})
         r = c.post(f"/api/projects/{pid}/corrections/apply",
                    json={"pairs": PAIRS, "transcriptVersion": version})
         assert r.status_code == 409

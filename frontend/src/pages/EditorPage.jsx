@@ -20,6 +20,7 @@ export default function EditorPage() {
   const [name, setName] = useState('')
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [conflict, setConflict] = useState(false) // stale save rejected (409)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [modal, setModal] = useState(null) // { initial }
@@ -36,6 +37,7 @@ export default function EditorPage() {
       setProject(p)
       setDoc(p.document || emptyDocument())
       setName(p.name)
+      setConflict(false)
     }).catch((e) => setError(e.message))
   }, [id])
 
@@ -148,17 +150,45 @@ export default function EditorPage() {
   const save = useCallback(async () => {
     setSaving(true); setError('')
     try {
-      const p = await api.saveProject(id, { name: name.trim(), document: doc })
+      const p = await api.saveProject(id, {
+        name: name.trim(),
+        document: doc,
+        baseVersion: project?.version || '',
+      })
       setProject(p)
       setDirty(false)
       setMessage('已保存 ' + new Date().toLocaleTimeString())
       setTimeout(() => setMessage(''), 2500)
     } catch (e) {
-      setError(e.message)
+      if (e.status === 409) {
+        // Another page saved first. Keep the local draft untouched and
+        // block saving until the user explicitly reloads the latest
+        // project — never overwrite the other page's confirmed edits.
+        setConflict(true)
+      } else {
+        setError(e.message)
+      }
     } finally {
       setSaving(false)
     }
-  }, [id, name, doc])
+  }, [id, name, doc, project])
+
+  /** Discard the local draft and load the latest saved project. */
+  const reloadLatest = async () => {
+    setError('')
+    try {
+      const p = await api.getProject(id)
+      setProject(p)
+      setDoc(p.document || emptyDocument())
+      setName(p.name)
+      setDirty(false)
+      setConflict(false)
+      setMessage('已重新加载最新项目，可继续编辑并保存')
+      setTimeout(() => setMessage(''), 4000)
+    } catch (e) {
+      setError(e.message)
+    }
+  }
 
   useEffect(() => {
     const h = (e) => {
@@ -242,6 +272,7 @@ export default function EditorPage() {
       setDoc(p.document)
       setProject(p)
       setDirty(true)
+      setConflict(false)
     } catch (e) {
       setError(`导入失败：${e.message}`)
     } finally {
@@ -314,13 +345,33 @@ export default function EditorPage() {
             导出 B 离线副本
           </button>
           <Link className="btn" to="/merge">前往三方合并 →</Link>
-          <button className="btn primary" disabled={saving || !dirty} onClick={save}>
+          <button
+            className="btn primary"
+            disabled={saving || !dirty || conflict}
+            onClick={save}
+            title={conflict ? '存在保存冲突，请先重新加载最新项目' : ''}
+          >
             {saving ? '保存中…' : '保存'}
           </button>
         </div>
       </div>
       {error && <div className="error">{error}</div>}
       {message && <div className="ok">{message}</div>}
+      {conflict && (
+        <div className="conflict-banner">
+          <div className="conflict-text">
+            <strong>⚠️ 保存冲突：该项目已在其他页面被修改并保存。</strong>
+            <span>
+              为避免覆盖那些修改，本次保存未写入任何内容；你在此页的未保存
+              草稿仍然保留。只有重新加载最新项目（当前草稿将被最新内容替换）
+              后才能再次保存。
+            </span>
+          </div>
+          <button className="btn primary" onClick={reloadLatest}>
+            重新加载最新项目
+          </button>
+        </div>
+      )}
 
       <div className="panel" ref={timelineRef}>
         <Timeline

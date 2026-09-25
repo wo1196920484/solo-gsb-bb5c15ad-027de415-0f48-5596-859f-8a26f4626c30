@@ -1,6 +1,7 @@
 """SQLite persistence (stdlib sqlite3, one file under DATA_DIR)."""
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sqlite3
@@ -29,6 +30,19 @@ def _now_us() -> str:
 
 def new_id(prefix: str) -> str:
     return f"{prefix}-{uuid.uuid4().hex[:12]}"
+
+
+def document_version(document: dict) -> str:
+    """Stable content fingerprint of the whole project document.
+
+    Covers every field of every segment and annotation, so any saved
+    change — however small — produces a different version.  Being a
+    content hash (not a timestamp), two writes within the same second
+    still yield distinct versions and can never go undetected.
+    """
+    canonical = json.dumps(document or {}, ensure_ascii=False,
+                           sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def init() -> None:
@@ -105,10 +119,12 @@ def init() -> None:
 
 
 def _row_to_dict(row: sqlite3.Row) -> dict:
+    document = json.loads(row["document"])
     return {
         "id": row["id"],
         "name": row["name"],
-        "document": json.loads(row["document"]),
+        "document": document,
+        "version": document_version(document),
         "createdAt": row["created_at"],
         "updatedAt": row["updated_at"],
     }
@@ -144,9 +160,27 @@ def create_project(name: str, document: dict | None = None) -> dict:
     return get_project(pid)
 
 
-def update_project(project_id: str, name: str | None, document: dict) -> dict | None:
+def update_project(project_id: str, name: str | None, document: dict,
+                   expected_version: str | None = None) -> dict | None:
+    """Save a project document, optionally guarded by a content version.
+
+    When ``expected_version`` is given, the saved document's version is
+    recomputed and compared **inside the same write lock** as the update:
+    a mismatch means another writer saved first, so nothing is written
+    (no field changes) and ``{"conflict": True}`` is returned.  Returns
+    ``None`` when the project does not exist.
+    """
     now = _now()
     with _lock:
+        row = _conn.execute(
+            "SELECT document FROM projects WHERE id = ?", (project_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        if expected_version is not None:
+            current = document_version(json.loads(row["document"]))
+            if current != expected_version:
+                return {"conflict": True}
         if name is not None:
             _conn.execute(
                 "UPDATE projects SET name = ?, document = ?, updated_at = ?"

@@ -42,7 +42,7 @@ export default function ProjectListPage() {
       const doc = await api.importTranscript(fd)
       const baseName = file.name.replace(/\.[^.]+$/, '')
       const p = await api.createProject(baseName || '导入的项目')
-      await api.saveProject(p.id, { document: doc })
+      await api.saveProject(p.id, { document: doc, baseVersion: p.version })
       await refresh()
     } catch (e) {
       setError(`导入失败：${e.message}`)
@@ -58,7 +58,7 @@ export default function ProjectListPage() {
       const doc = JSON.parse(await readFileText(file))
       if (!doc.segments) throw new Error('JSON 中缺少 segments')
       const p = await api.createProject(file.name.replace(/\.[^.]+$/, ''))
-      await api.saveProject(p.id, { document: doc })
+      await api.saveProject(p.id, { document: doc, baseVersion: p.version })
       await refresh()
     } catch (e) {
       setError(`载入 JSON 失败：${e.message}`)

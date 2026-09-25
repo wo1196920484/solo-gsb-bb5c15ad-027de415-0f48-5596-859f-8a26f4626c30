@@ -180,7 +180,8 @@ def test_api():
         p = c.post("/api/projects", json={"name": "摘录包访谈"}).json()
         pid = p["id"]
         c.put(f"/api/projects/{pid}",
-              json={"name": "摘录包访谈", "document": DOC})
+              json={"name": "摘录包访谈", "document": DOC,
+                    "baseVersion": p["version"]})
 
         body = {"ranges": [
             {"start": 60, "end": 90},

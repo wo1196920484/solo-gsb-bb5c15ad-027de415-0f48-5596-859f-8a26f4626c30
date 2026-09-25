@@ -81,10 +81,28 @@ def get_project(project_id: str) -> dict:
 
 @app.put("/api/projects/{project_id}")
 def save_project(project_id: str, payload: ProjectUpdate) -> dict:
+    """Save the project document with optimistic concurrency control.
+
+    The request must carry the ``version`` the client read earlier
+    (``baseVersion``); the version is re-verified inside the write lock
+    and a mismatch rejects the save with 409 — no field is written then.
+    """
     _get_or_404(project_id)
+    if not payload.baseVersion or not payload.baseVersion.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="缺少文档版本（baseVersion），请重新读取项目后再保存")
     name = payload.name.strip() if payload.name else None
-    project = db.update_project(project_id, name, _doc(payload.document))
-    return project
+    result = db.update_project(project_id, name, _doc(payload.document),
+                               expected_version=payload.baseVersion)
+    if result is None:  # project vanished between the checks
+        raise HTTPException(status_code=404, detail="项目不存在")
+    if result.get("conflict"):
+        raise HTTPException(
+            status_code=409,
+            detail="项目在此期间已被其他页面修改并保存，为避免覆盖那些修改，"
+                   "本次保存未写入任何内容；请重新加载最新项目后再保存")
+    return result
 
 
 @app.delete("/api/projects/{project_id}", status_code=204)
