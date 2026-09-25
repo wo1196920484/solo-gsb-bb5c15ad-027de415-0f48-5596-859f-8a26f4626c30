@@ -1,0 +1,15 @@
+# dependencies / build output
+node_modules/
+frontend/dist/
+
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# runtime data (sqlite)
+data/
+*.db
+*.db-wal
+*.db-shm
